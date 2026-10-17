@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#ffe9f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="わんどく">
+<meta name="application-name" content="わんどく">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>わんどく - わんこ配置パズル</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;touch-action:manipulation;
+ font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo","Noto Sans CJK JP","Noto Sans JP",sans-serif;color:#5b4a6b}
+body{background:linear-gradient(160deg,#ffe3f0 0%,#e6e9ff 55%,#d9f6ee 100%)}
+.scr{height:100vh;height:100dvh;display:none;flex-direction:column;align-items:center;gap:10px;
+ padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));max-width:620px;margin:0 auto;overflow-y:auto}
+.scr.on{display:flex}
+h1{margin:6px 0 0;font-size:30px;letter-spacing:3px;color:#8a5fa8}
+.sub{font-size:13px;opacity:.8;margin:0}
+.card{background:rgba(255,255,255,.78);border-radius:18px;padding:12px 14px;box-shadow:0 3px 12px rgba(150,120,180,.15);width:100%}
+.rules{font-size:13px;line-height:1.7}
+.rules b{color:#c0679a}
+.sizes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.sz{border:none;border-radius:14px;padding:8px 0;background:#fff;color:#7a5a90;font:inherit;font-weight:bold;font-size:15px;box-shadow:0 2px 6px rgba(150,120,180,.18)}
+.sz small{display:block;font-size:10px;font-weight:normal}
+.sz.sel{background:linear-gradient(135deg,#ffb3d1,#c9b6ff);color:#fff}
+.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
+.st{aspect-ratio:1;border:none;border-radius:14px;background:#fff;font:inherit;font-size:15px;color:#7a5a90;position:relative;box-shadow:0 2px 6px rgba(150,120,180,.15)}
+.st.done{background:#fff4c9}
+.st .t{position:absolute;left:0;right:0;bottom:3px;font-size:9px;opacity:.75}
+.st .p{position:absolute;right:3px;top:1px;font-size:11px}
+#top{display:flex;align-items:center;gap:8px;width:100%}
+.btn{border:none;border-radius:14px;padding:9px 12px;background:#fff;color:#7a5a90;font:inherit;font-size:14px;font-weight:bold;box-shadow:0 2px 6px rgba(150,120,180,.2);cursor:pointer}
+.btn:active{transform:scale(.95)}
+.btn.pri{background:linear-gradient(135deg,#ffb3d1,#c9b6ff);color:#fff}
+.btn.off{opacity:.5}
+#title2{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;font-weight:bold;color:#8a5fa8}
+#hud{display:flex;gap:8px;width:100%}
+#hud .card{padding:6px 10px;display:flex;align-items:center;gap:6px;font-size:14px}
+#hud .card{flex:1 1 0;min-width:0}
+#hud .v{font-size:20px;font-weight:bold;margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+#board{display:grid;grid-template-rows:repeat(var(--n),minmax(0,1fr));grid-template-columns:repeat(var(--n),minmax(0,1fr));overflow:hidden;flex:none;contain:layout;width:min(100%,520px,calc(100dvh - 300px));aspect-ratio:1;background:#6d5a7d;border-radius:12px;padding:3px;gap:0;touch-action:none;box-shadow:0 6px 18px rgba(120,90,150,.25)}
+.c{position:relative;min-width:0;min-height:0;width:100%;height:100%;overflow:hidden;line-height:0;font-size:0;border:0;cursor:pointer;
+ box-shadow:inset 0 0 0 1px rgba(90,70,110,.18),inset 0 var(--bt,0px) 0 0 #5b4a6b,inset 0 calc(-1*var(--bb,0px)) 0 0 #5b4a6b,inset var(--bl,0px) 0 0 0 #5b4a6b,inset calc(-1*var(--br,0px)) 0 0 0 #5b4a6b}
+.c.bt{--bt:3px}.c.bb{--bb:3px}.c.bl{--bl:3px}.c.br{--br:3px}
+.c .x,.c svg{position:absolute;left:8%;top:8%;width:84%;height:84%;pointer-events:none}
+.c .x{stroke:#8b7499;stroke-width:14;stroke-linecap:round;opacity:.75}
+.c svg.dg{animation:pop .25s ease-out}
+.c.err::after{content:"";position:absolute;inset:3px;border-radius:6px;background:rgba(255,60,90,.3);box-shadow:inset 0 0 0 2px #ff4d73;pointer-events:none}
+.c.hint::before{content:"";position:absolute;inset:0;pointer-events:none;background:#fff36b;animation:fl .5s ease-in-out infinite alternate}
+@keyframes fl{from{opacity:.15}to{opacity:.85}}
+@keyframes pop{from{transform:scale(.3)}to{transform:scale(1)}}
+#tools{display:flex;gap:6px;width:100%;flex-wrap:wrap;justify-content:center}
+#tools .btn{flex:1 1 0;min-width:0;white-space:nowrap;padding:10px 4px}
+#msg{height:20px;line-height:20px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%;flex:none;font-size:13px;text-align:center;opacity:.85}
+#clear{position:fixed;inset:0;background:rgba(255,240,248,.6);display:none;align-items:center;justify-content:center;z-index:10}
+#clear.on{display:flex}
+#clear .card{width:min(86%,360px);text-align:center;animation:pop .4s cubic-bezier(.3,1.6,.5,1)}
+#clear h2{margin:6px 0;color:#d0609a;font-size:28px}
+#clear .dog{width:110px;height:110px;animation:hop .6s ease-in-out infinite alternate}
+@keyframes hop{from{transform:translateY(0) rotate(-6deg)}to{transform:translateY(-14px) rotate(6deg)}}
+.conf{position:fixed;top:-40px;font-size:26px;z-index:11;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+</style>
+</head>
+<body>
+<section class="scr on" id="sel">
+ <h1>🐶 わんどく</h1>
+ <p class="sub">わんこに「なわばり」を見つけてあげよう！</p>
+ <div class="card rules">
+  <b>ルール</b>：色分けされた<b>各エリアに1匹ずつ</b>わんこを置きます。<br>
+  わんこは<b>同じ行・同じ列に2匹</b>入れず、<b>となり同士（ななめも）</b>にもなれません。<br>
+  <b>操作</b>：タップで「空 → ✕ → わんこ」。長押し・なぞりで ✕ をまとめて付けられます。
+ </div>
+ <div class="card">
+  <div class="sizes" id="sizes"></div>
+  <div class="stages" id="stages"></div>
+ </div>
+ <button class="btn" id="muteBtn2">🔊 音 ON</button>
+</section>
+
+<section class="scr" id="game">
+ <div id="top"><button class="btn" id="backBtn">◀ もどる</button><div id="title2"></div><button class="btn" id="muteBtn">🔊</button></div>
+ <div id="hud">
+  <div class="card">⏱<span class="v" id="tm">0:00</span></div>
+  <div class="card">🐶<span class="v" id="dc">0/0</span></div>
+  <div class="card">🏆<span class="v" id="bt">--</span></div>
+ </div>
+ <div id="board"></div>
+ <div id="msg"></div>
+ <div id="tools">
+  <button class="btn" id="undoBtn">↩ もどす</button>
+  <button class="btn" id="hintBtn">💡 ヒント</button>
+  <button class="btn" id="errBtn">❗ ミス表示</button>
+  <button class="btn" id="resetBtn">🔄 リセット</button>
+ </div>
+</section>
+
+<div id="clear"><div class="card">
+ <div id="clearDog"></div>
+ <h2>クリア！</h2>
+ <div id="clearInfo"></div>
+ <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+  <button class="btn" id="cSel">ステージ選択</button><button class="btn pri" id="cNext">つぎへ ▶</button>
+ </div>
+</div></div>
+
+<script>
+(function(){
+'use strict';
+const SIZES=[5,6,7,8,9], LABEL={5:'かんたん',6:'ふつう',7:'ちょいむず',8:'むずかしい',9:'達人'}, STAGES=20;
+const COLORS=['#ffc8dd','#bde0fe','#caffbf','#fdffb6','#ffd6a5','#d7c4ff','#a0f0e4','#ffadad','#e2ece9'];
+// ---------- RNG ----------
+function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+// ---------- Solver: count solutions (up to limit). reg: array n*n of region ids ----------
+function solve(n,reg,limit){limit=limit||2;const sols=[];const colU=new Array(n).fill(false),regU=new Array(n).fill(false),pos=new Array(n);
+ function rec(r){if(r===n){sols.push(pos.slice());return sols.length>=limit}
+  for(let c=0;c<n;c++){if(colU[c])continue;const g=reg[r*n+c];if(regU[g])continue;if(r>0&&Math.abs(pos[r-1]-c)<=1)continue;
+   colU[c]=regU[g]=true;pos[r]=c;if(rec(r+1))return true;colU[c]=regU[g]=false}return false}
+ rec(0);return sols}
+// ---------- Generator ----------
+function randPerm(n,r){const p=new Array(n),used=new Array(n).fill(false);
+ function rec(i){if(i===n)return true;const cs=shuffle([...Array(n).keys()],r);for(const c of cs){if(used[c]||(i>0&&Math.abs(p[i-1]-c)<=1))continue;used[c]=true;p[i]=c;if(rec(i+1))return true;used[c]=false}return false}
+ rec(0);return p}
+function growRegions(n,perm,r){const reg=new Array(n*n).fill(-1);const front=[];
+ for(let i=0;i<n;i++){reg[i*n+perm[i]]=i}
+ let left=n*n-n;const D=[[1,0],[-1,0],[0,1],[0,-1]];
+ while(left>0){// pick random unassigned cell adjacent to a region, weighted to make varied shapes
+  const cand=[];for(let k=0;k<n*n;k++)if(reg[k]<0){const y=k/n|0,x=k%n;for(const[dy,dx]of D){const yy=y+dy,xx=x+dx;if(yy>=0&&yy<n&&xx>=0&&xx<n&&reg[yy*n+xx]>=0)cand.push([k,reg[yy*n+xx]])}}
+  const [k,g]=cand[Math.floor(r()*cand.length)];reg[k]=g;left--}
+ return reg}
+function connected(n,reg,g){const cells=[];for(let k=0;k<n*n;k++)if(reg[k]===g)cells.push(k);if(!cells.length)return false;
+ const seen=new Set([cells[0]]),q=[cells[0]];while(q.length){const k=q.pop(),y=k/n|0,x=k%n;for(const[dy,dx]of[[1,0],[-1,0],[0,1],[0,-1]]){const a=y+dy,b=x+dx,j=a*n+b;if(a>=0&&b>=0&&a<n&&b<n&&reg[j]===g&&!seen.has(j)){seen.add(j);q.push(j)}}}return seen.size===cells.length}
+function generate(n,seed){const r=rng(seed*7919+n*104729);
+ for(let tries=0;tries<20000;tries++){const perm=randPerm(n,r);const reg=growRegions(n,perm,r);const s=solve(n,reg,2);
+  if(s.length===1)return{n,reg,sol:s[0],tries:tries+1};
+  // repair: move a cell of the alternative solution into a neighbouring region
+  let cur=s;for(let step=0;step<60&&cur.length>1;step++){const good=cur[0],alt=cur[1];
+   const ks=[];for(let y=0;y<n;y++)if(alt[y]!==good[y])ks.push(y*n+alt[y]);
+   let moved=false;for(const k of shuffle(ks,r)){const y=k/n|0,x=k%n,g=reg[k];if(perm[y]===x)continue;
+    const nb=shuffle([[1,0],[-1,0],[0,1],[0,-1]],r).map(([dy,dx])=>[y+dy,x+dx]).filter(([a,b])=>a>=0&&b>=0&&a<n&&b<n&&reg[a*n+b]!==g);
+    if(!nb.length)continue;reg[k]=-2;if(!connected(n,reg,g)){reg[k]=g;continue}
+    const[a,b]=nb[Math.floor(r()*nb.length)];reg[k]=reg[a*n+b];moved=true;break}
+   if(!moved)break;cur=solve(n,reg,2)}
+  if(cur.length===1)return{n,reg,sol:cur[0],tries:tries+1}}
+ return null}
+const cache={};function puzzle(n,stage){const k=n+'-'+stage;if(!cache[k])cache[k]=generate(n,stage);return cache[k]}
+// ---------- Storage ----------
+const LS={get(k,d){try{const v=localStorage.getItem('wan_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('wan_'+k,JSON.stringify(v))}catch(e){}}};
+let best=LS.get('best',{});let muted=LS.get('mute',false);let showErr=LS.get('err',true);
+// ---------- Sound ----------
+let ac=null;function tone(f,d,type,vol,delay){if(muted)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();
+ const t=ac.currentTime+(delay||0),o=ac.createOscillator(),g=ac.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(vol||.12,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d+.02)}catch(e){}}
+const SND={x:()=>tone(520,.06,'triangle',.07),dog:()=>{tone(700,.08,'square',.05);tone(940,.1,'square',.05,.07)},off:()=>tone(300,.07,'sine',.08),
+ err:()=>tone(180,.18,'sawtooth',.06),hint:()=>{tone(880,.1);tone(1320,.15,'sine',.1,.1)},win:()=>[523,659,784,1047,1319].forEach((f,i)=>tone(f,.25,'triangle',.12,i*.12))};
+// ---------- Dog SVG ----------
+function dogSVG(variant){const pal=[['#f3c58a','#a8703b'],['#fff','#c9a27a'],['#d9a066','#6b4423'],['#f6e1c3','#e0a96d'],['#c8c8d0','#6e6e7e']][variant%5];
+ return `<svg class="dg" viewBox="0 0 100 100"><ellipse cx="22" cy="42" rx="13" ry="24" fill="${pal[1]}" transform="rotate(18 22 42)"/><ellipse cx="78" cy="42" rx="13" ry="24" fill="${pal[1]}" transform="rotate(-18 78 42)"/>
+<circle cx="50" cy="52" r="33" fill="${pal[0]}" stroke="${pal[1]}" stroke-width="3"/><ellipse cx="50" cy="66" rx="17" ry="13" fill="#fff8ef"/>
+<circle cx="38" cy="48" r="5" fill="#3b2b3f"/><circle cx="62" cy="48" r="5" fill="#3b2b3f"/><circle cx="39.6" cy="46.3" r="1.7" fill="#fff"/><circle cx="63.6" cy="46.3" r="1.7" fill="#fff"/>
+<ellipse cx="50" cy="61" rx="6" ry="4.5" fill="#3b2b3f"/><path d="M50 65 Q50 71 44 71 M50 65 Q50 71 56 71" stroke="#3b2b3f" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+<ellipse cx="29" cy="60" rx="5" ry="3" fill="#ffadc6" opacity=".8"/><ellipse cx="71" cy="60" rx="5" ry="3" fill="#ffadc6" opacity=".8"/></svg>`}
+// ---------- State ----------
+const $=id=>document.getElementById(id);
+const st={n:5,stage:1,pz:null,cells:[],undo:[],t0:0,elapsed:0,timer:null,done:false,hintCell:-1};
+let selSize=LS.get('lastSize',5);
+function fmt(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function renderSel(){const sz=$('sizes');sz.innerHTML='';for(const n of SIZES){const b=document.createElement('button');b.className='sz'+(n===selSize?' sel':'');b.innerHTML=`${n}×${n}<small>${LABEL[n]}</small>`;b.dataset.n=n;b.onclick=()=>{selSize=n;LS.set('lastSize',n);renderSel()};sz.appendChild(b)}
+ const sg=$('stages');sg.innerHTML='';for(let i=1;i<=STAGES;i++){const k=selSize+'-'+i,bv=best[k];const b=document.createElement('button');b.className='st'+(bv?' done':'');b.dataset.s=i;
+  b.innerHTML=`${i}${bv?'<span class="p">🐾</span><span class="t">'+fmt(bv)+'</span>':''}`;b.onclick=()=>startGame(selSize,i);sg.appendChild(b)}
+ const m=muted?'🔇 音 OFF':'🔊 音 ON';$('muteBtn2').textContent=m;$('muteBtn').textContent=muted?'🔇':'🔊'}
+function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.toggle('on',s.id===id))}
+function startGame(n,stage){st.n=n;st.stage=stage;st.pz=puzzle(n,stage);st.cells=new Array(n*n).fill(0);st.undo=[];st.done=false;st.elapsed=0;st.t0=performance.now();st.hintCell=-1;
+ $('title2').textContent=`${n}×${n} ${LABEL[n]}  No.${stage}`;const bv=best[n+'-'+stage];$('bt').textContent=bv?fmt(bv):'--';$('msg').textContent='各エリアに1匹ずつ、わんこを置こう！';
+ buildBoard();show('game');clearInterval(st.timer);st.timer=setInterval(tick,250);tick()}
+function tick(){if(st.done)return;st.elapsed=(performance.now()-st.t0)/1000;$('tm').textContent=fmt(st.elapsed)}
+function buildBoard(){const n=st.n,reg=st.pz.reg,B=$('board');B.innerHTML='';B.style.setProperty('--n',n);
+ for(let k=0;k<n*n;k++){const y=k/n|0,x=k%n,g=reg[k];const d=document.createElement('div');d.className='c';d.dataset.i=k;d.style.background=COLORS[g];
+  if(y===0||reg[k-n]!==g)d.classList.add('bt');if(y===n-1||reg[k+n]!==g)d.classList.add('bb');if(x===0||reg[k-1]!==g)d.classList.add('bl');if(x===n-1||reg[k+1]!==g)d.classList.add('br');B.appendChild(d)}
+ render()}
+function conflicts(){const n=st.n,reg=st.pz.reg,bad=new Set(),dogs=[];for(let k=0;k<n*n;k++)if(st.cells[k]===2)dogs.push(k);
+ for(let i=0;i<dogs.length;i++)for(let j=i+1;j<dogs.length;j++){const a=dogs[i],b=dogs[j],ay=a/n|0,ax=a%n,by=b/n|0,bx=b%n;
+  if(ay===by||ax===bx||reg[a]===reg[b]||(Math.abs(ay-by)<=1&&Math.abs(ax-bx)<=1)){bad.add(a);bad.add(b)}}return{bad,dogs}}
+function render(){const {bad,dogs}=conflicts();const B=$('board').children;
+ for(let k=0;k<B.length;k++){const d=B[k],v=st.cells[k];const want=v===2?'d':v===1?'x':'';if(d.dataset.v!==want){d.dataset.v=want;d.innerHTML=v===2?dogSVG(k*7%5):v===1?'<svg class="x" viewBox="0 0 100 100"><path d="M28 28L72 72M72 28L28 72"/></svg>':''}
+  d.classList.toggle('err',showErr&&bad.has(k));d.classList.toggle('hint',k===st.hintCell)}
+ $('dc').textContent=dogs.length+'/'+st.n;$('errBtn').classList.toggle('off',!showErr);$('undoBtn').classList.toggle('off',!st.undo.length);return{bad,dogs}}
+function setCells(changes){// changes: [[k,newVal]]
+ const rec=[];for(const[k,v]of changes){if(st.cells[k]!==v){rec.push([k,st.cells[k],v]);st.cells[k]=v}}if(rec.length)st.undo.push(rec);return rec.length}
+function afterChange(kind){const {bad,dogs}=render();if(kind==='dog'){if(bad.size&&showErr)SND.err();else SND.dog()}else if(kind==='x')SND.x();else if(kind==='off')SND.off();
+ if(dogs.length===st.n&&!bad.size)win()}
+function win(){st.done=true;clearInterval(st.timer);st.elapsed=(performance.now()-st.t0)/1000;$('tm').textContent=fmt(st.elapsed);
+ const k=st.n+'-'+st.stage,prev=best[k],rec=!prev||st.elapsed<prev;if(rec){best[k]=Math.max(1,Math.round(st.elapsed));LS.set('best',best)}
+ SND.win();$('clearDog').innerHTML=`<div class="dog">${dogSVG(st.stage)}</div>`;
+ $('clearInfo').innerHTML=`タイム <b>${fmt(st.elapsed)}</b>${rec?'<br>🎉 ベスト記録！':'<br>ベスト '+fmt(prev)}`;
+ $('cNext').style.display=st.stage<STAGES?'':'none';
+ setTimeout(()=>{$('clear').classList.add('on');confetti()},350)}
+function confetti(){const em=['🐶','🦴','🐾','💖','⭐','🌸'];for(let i=0;i<36;i++){const s=document.createElement('div');s.className='conf';s.textContent=em[i%em.length];
+ s.style.left=Math.random()*100+'vw';s.style.animationDuration=(1.8+Math.random()*1.8)+'s';s.style.animationDelay=Math.random()*.8+'s';document.body.appendChild(s);setTimeout(()=>s.remove(),4500)}}
+// ---------- Input ----------
+let ptr=null;
+function cellAt(x,y){const el=document.elementFromPoint(x,y);const c=el&&el.closest&&el.closest('.c');return c?+c.dataset.i:-1}
+$('board').addEventListener('pointerdown',e=>{if(st.done)return;const k=cellAt(e.clientX,e.clientY);if(k<0)return;e.preventDefault();
+ ptr={id:e.pointerId,start:k,mode:'tap',batch:[],set:new Set()};ptr.lp=setTimeout(()=>{if(ptr&&ptr.mode==='tap'){ptr.mode='drag';markX(ptr.start);if(navigator.vibrate)navigator.vibrate(15)}},380)});
+function markX(k){if(ptr.set.has(k))return;ptr.set.add(k);if(st.cells[k]===0){st.cells[k]=1;ptr.batch.push([k,0,1]);render();SND.x()}}
+window.addEventListener('pointermove',e=>{if(!ptr||e.pointerId!==ptr.id)return;const k=cellAt(e.clientX,e.clientY);if(k<0)return;
+ if(ptr.mode==='tap'&&k!==ptr.start){ptr.mode='drag';clearTimeout(ptr.lp);markX(ptr.start)}if(ptr.mode==='drag')markX(k)});
+function endPtr(e){if(!ptr||e.pointerId!==ptr.id)return;clearTimeout(ptr.lp);const p=ptr;ptr=null;
+ if(p.mode==='drag'){if(p.batch.length)st.undo.push(p.batch);render();return}
+ if(e.type==='pointercancel')return;const k=p.start,v=(st.cells[k]+1)%3;st.hintCell=-1;setCells([[k,v]]);afterChange(v===2?'dog':v===1?'x':'off')}
+window.addEventListener('pointerup',endPtr);window.addEventListener('pointercancel',endPtr);
+// ---------- Buttons ----------
+$('undoBtn').onclick=()=>{if(st.done)return;const r=st.undo.pop();if(!r)return;for(let i=r.length-1;i>=0;i--)st.cells[r[i][0]]=r[i][1];st.hintCell=-1;render();SND.off()};
+$('resetBtn').onclick=()=>{if(st.done)return;const ch=[];st.cells.forEach((v,k)=>{if(v)ch.push([k,0])});if(setCells(ch)){render();SND.off();$('msg').textContent='リセットしました（もどすで戻せます）'}};
+$('errBtn').onclick=()=>{showErr=!showErr;LS.set('err',showErr);render();$('msg').textContent=showErr?'ミス表示 ON：ぶつかっているわんこを赤く表示':'ミス表示 OFF'};
+$('hintBtn').onclick=()=>{if(st.done)return;const n=st.n,sol=st.pz.sol,isSol=k=>sol[k/n|0]===k%n;
+ // 1) wrong dog -> remove it 2) X on a solution cell -> fix 3) reveal a missing dog
+ let k=st.cells.findIndex((v,i)=>v===2&&!isSol(i));let msg;
+ if(k>=0){setCells([[k,0]]);msg='このわんこは置けない場所でした。外しました'}
+ else{k=st.cells.findIndex((v,i)=>v===1&&isSol(i));
+  if(k<0){const miss=[];for(let r=0;r<n;r++){const i=r*n+sol[r];if(st.cells[i]!==2)miss.push(i)}
+   // prefer the most constrained region (smallest)
+   miss.sort((a,b)=>st.pz.reg.filter(g=>g===st.pz.reg[a]).length-st.pz.reg.filter(g=>g===st.pz.reg[b]).length);k=miss[0]}
+  if(k===undefined||k<0)return;setCells([[k,2]]);msg='ここにわんこが入ります！'}
+ st.hintCell=k;SND.hint();$('msg').textContent='💡 '+msg;afterChange('hint');setTimeout(()=>{if(st.hintCell===k){st.hintCell=-1;render()}},2500)};
+function toggleMute(){muted=!muted;LS.set('mute',muted);renderSel();if(!muted)tone(660,.1)}
+$('muteBtn').onclick=toggleMute;$('muteBtn2').onclick=toggleMute;
+$('backBtn').onclick=()=>{clearInterval(st.timer);renderSel();show('sel')};
+$('cSel').onclick=()=>{$('clear').classList.remove('on');renderSel();show('sel')};
+$('cNext').onclick=()=>{$('clear').classList.remove('on');startGame(st.n,st.stage+1)};
+renderSel();
+window.__wan={solve,generate,puzzle,st,SIZES,STAGES};
+})();
+</script>
+</body>
+</html>
