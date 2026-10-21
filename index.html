@@ -56,9 +56,22 @@ h1{margin:6px 0 0;font-size:30px;letter-spacing:3px;color:#8a5fa8}
 .c.hint::before{content:"";position:absolute;inset:0;pointer-events:none;background:#fff36b;animation:fl .5s ease-in-out infinite alternate}
 @keyframes fl{from{opacity:.15}to{opacity:.85}}
 @keyframes pop{from{transform:scale(.3)}to{transform:scale(1)}}
-#tools{display:flex;gap:6px;width:100%;flex-wrap:wrap;justify-content:center}
-#tools .btn{flex:1 1 0;min-width:0;white-space:nowrap;padding:10px 4px}
+#tools{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;width:100%;flex:none}
+#tools .btn{grid-column:span 2}#tools .btn.w2{grid-column:span 3}
+#tools .btn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:10px 4px}
 #msg{height:20px;line-height:20px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%;flex:none;font-size:13px;text-align:center;opacity:.85}
+#ded{position:fixed;left:0;right:0;bottom:0;z-index:5;display:none;justify-content:center;padding:0 10px max(10px,env(safe-area-inset-bottom))}
+#ded.on{display:flex}
+#ded .card{max-width:600px;border:3px solid #b9a3ff;box-shadow:0 -4px 18px rgba(120,90,150,.25);padding:10px 12px;animation:up .25s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+#ded .hd{display:flex;align-items:center;gap:6px;font-weight:bold;color:#7a5ad0;font-size:15px}
+#ded .hd .rl{font-size:11px;font-weight:normal;background:#efe9ff;border-radius:8px;padding:2px 6px}
+#ded .hd button{margin-left:auto;padding:4px 10px}
+#dedTxt{font-size:14px;line-height:1.6;margin:6px 0 8px;max-height:30vh;overflow-y:auto}
+#ded .row{display:flex;gap:8px}#ded .row .btn{flex:1}
+.c.dt::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(45deg,rgba(255,77,115,.45) 0 5px,rgba(255,255,255,.35) 5px 10px);box-shadow:inset 0 0 0 3px #ff4d73}
+.c.dc::before{content:"";position:absolute;inset:0;pointer-events:none;background:rgba(120,220,140,.45);box-shadow:inset 0 0 0 3px #2fae5a;animation:fl .7s ease-in-out infinite alternate}
+.c.dm::before{content:"";position:absolute;inset:0;pointer-events:none;background:rgba(255,170,0,.45);box-shadow:inset 0 0 0 3px #ff8a00;animation:fl .5s ease-in-out infinite alternate}
 #clear{position:fixed;inset:0;background:rgba(255,240,248,.6);display:none;align-items:center;justify-content:center;z-index:10}
 #clear.on{display:flex}
 #clear .card{width:min(86%,360px);text-align:center;animation:pop .4s cubic-bezier(.3,1.6,.5,1)}
@@ -95,13 +108,19 @@ h1{margin:6px 0 0;font-size:30px;letter-spacing:3px;color:#8a5fa8}
  <div id="board"></div>
  <div id="msg"></div>
  <div id="tools">
+  <button class="btn w2" id="hintBtn">💡 こたえヒント</button>
+  <button class="btn w2" id="dedBtn">🔍 おけないヒント</button>
   <button class="btn" id="undoBtn">↩ もどす</button>
-  <button class="btn" id="hintBtn">💡 ヒント</button>
   <button class="btn" id="errBtn">❗ ミス表示</button>
   <button class="btn" id="resetBtn">🔄 リセット</button>
  </div>
 </section>
 
+<div id="ded"><div class="card">
+ <div class="hd">🔍 おけないヒント <span class="rl" id="dedRule"></span><button class="btn" id="dedClose">✕ とじる</button></div>
+ <div id="dedTxt"></div>
+ <div class="row"><button class="btn pri" id="dedApply">✕をつける</button></div>
+</div></div>
 <div id="clear"><div class="card">
  <div id="clearDog"></div>
  <h2>クリア！</h2>
@@ -167,6 +186,69 @@ function dogSVG(variant){const pal=[['#f3c58a','#a8703b'],['#fff','#c9a27a'],['#
 <circle cx="38" cy="48" r="5" fill="#3b2b3f"/><circle cx="62" cy="48" r="5" fill="#3b2b3f"/><circle cx="39.6" cy="46.3" r="1.7" fill="#fff"/><circle cx="63.6" cy="46.3" r="1.7" fill="#fff"/>
 <ellipse cx="50" cy="61" rx="6" ry="4.5" fill="#3b2b3f"/><path d="M50 65 Q50 71 44 71 M50 65 Q50 71 56 71" stroke="#3b2b3f" stroke-width="2.2" fill="none" stroke-linecap="round"/>
 <ellipse cx="29" cy="60" rx="5" ry="3" fill="#ffadc6" opacity=".8"/><ellipse cx="71" cy="60" rx="5" ry="3" fill="#ffadc6" opacity=".8"/></svg>`}
+// ---------- Logical deduction (おけないヒント) ----------
+const RNAME=['ピンク','みずいろ','みどり','きいろ','オレンジ','むらさき','ミント','サーモン','グレー'];
+function deduce(n,reg,cells,sol,only){const use=k=>!only||only===k;
+ const N=n*n,R=k=>k/n|0,C=k=>k%n,isSol=k=>!!sol&&sol[R(k)]===C(k);
+ const near=(a,b)=>Math.abs(R(a)-R(b))<=1&&Math.abs(C(a)-C(b))<=1;
+ const blocks=(a,b)=>a!==b&&(R(a)===R(b)||C(a)===C(b)||reg[a]===reg[b]||near(a,b));
+ const rowN=r=>`上から${r+1}行目`,colN=c=>`左から${c+1}列目`,areaN=g=>`「${RNAME[g]}」エリア`;
+ const dogs=[];for(let k=0;k<N;k++)if(cells[k]===2)dogs.push(k);
+ // mistakes first
+ for(let i=0;i<dogs.length;i++)for(let j=i+1;j<dogs.length;j++)if(blocks(dogs[i],dogs[j]))
+  return{type:'mistake',targets:[],causes:[dogs[i],dogs[j]],msg:'この2匹のわんこがぶつかっています（同じ行・列・エリア、またはとなり）。どちらかを外してみよう。'};
+ if(sol){const w=dogs.find(k=>!isSol(k));if(w!==undefined)return{type:'mistake',targets:[],causes:[w],msg:'このわんこの場所は、答えと合わないようです。外して考え直してみよう。'};
+  for(let k=0;k<N;k++)if(cells[k]===1&&isSol(k))return{type:'mistake',targets:[],causes:[k],msg:'この✕は早とちりかも。ここにはわんこが入る可能性があります。✕を外してみよう。'}}
+ const safe=t=>t.filter(k=>!isSol(k));
+ const res=(rule,targets,causes,msg)=>{targets=safe([...new Set(targets)]);return targets.length?{type:'elim',rule,targets,causes:[...new Set(causes)],msg}:null};
+ // Rule 1: blocked by a placed dog
+ if(use(1))for(const d of dogs){const t=[];for(let k=0;k<N;k++)if(cells[k]===0&&blocks(d,k))t.push(k);
+  const r=res(1,t,[d],'このわんこと同じ行・同じ列・同じエリアのマスと、となり（ななめも）のマスには、もうわんこを置けません。');if(r)return r}
+ // candidate sets for open units
+ const cand=[];for(let k=0;k<N;k++)if(cells[k]===0)cand.push(k);
+ const units=[];// {kind,id,name,cells}
+ const hasDog=(f)=>dogs.some(f);
+ for(let g=0;g<n;g++)if(!hasDog(d=>reg[d]===g))units.push({kind:'a',id:g,name:areaN(g),cells:cand.filter(k=>reg[k]===g)});
+ for(let r=0;r<n;r++)if(!hasDog(d=>R(d)===r))units.push({kind:'r',id:r,name:rowN(r),cells:cand.filter(k=>R(k)===r)});
+ for(let c=0;c<n;c++)if(!hasDog(d=>C(d)===c))units.push({kind:'c',id:c,name:colN(c),cells:cand.filter(k=>C(k)===c)});
+ const empty=units.find(u=>!u.cells.length);
+ if(empty)return{type:'mistake',targets:[],causes:[],unit:empty,msg:`${empty.name}にわんこを置ける場所がなくなっています。✕のつけすぎかも？もどしてみよう。`};
+ const areas=units.filter(u=>u.kind==='a'),lines=units.filter(u=>u.kind!=='a');
+ const lineOf=(u,kind)=>{const s=new Set(u.cells.map(kind==='r'?R:C));return s};
+ const lname=(kind,ids)=>ids.map(i=>i+1).join('・')+(kind==='r'?'行目':'列目');
+ // Rule 2: one area confined to one row/col, or one row/col confined to one area
+ if(use(2))for(const a of areas)for(const kind of['r','c']){const s=lineOf(a,kind);if(s.size===1){const L=[...s][0];
+   const r=res(2,cand.filter(k=>(kind==='r'?R(k):C(k))===L&&reg[k]!==a.id),a.cells,`${a.name}のわんこは${kind==='r'?rowN(L):colN(L)}にしか置けません。だから、その${kind==='r'?'行':'列'}のほかのエリアのマスには置けません。`);if(r)return r}}
+ if(use(2))for(const l of lines){const s=new Set(l.cells.map(k=>reg[k]));if(s.size===1){const g=[...s][0];
+   const r=res(2,cand.filter(k=>reg[k]===g&&!l.cells.includes(k)),l.cells,`${l.name}のわんこは${areaN(g)}の中にしか置けません。だから、${areaN(g)}のほかのマスには置けません。`);if(r)return r}}
+ // Rule 3: placing here would block every remaining cell of some unit
+ if(use(3))for(const u of units){const t=cand.filter(c=>!u.cells.includes(c)&&u.cells.every(k=>blocks(c,k)));
+  if(t.length){const adj=t.every(c=>u.cells.every(k=>near(c,k)));
+   const r=res(3,t,u.cells,adj?`ここにわんこを置くと、${u.name}の残りのマスすべてにとなってしまいます。${u.name}に置ける場所がなくなるので、ここには置けません。`:
+    `ここにわんこを置くと、${u.name}の残りのマス（光っているマス）がすべて置けなくなります（同じ行・列・エリアか、となり）。だから、ここには置けません。`);if(r)return r}}
+ // Rule 4: N areas confined to N rows/cols (and N rows/cols confined to N areas)
+ function* combos(arr,k,st=0,acc=[]){if(acc.length===k){yield acc.slice();return}for(let i=st;i<arr.length;i++){acc.push(arr[i]);yield* combos(arr,k,i+1,acc);acc.pop()}}
+ if(use(4))for(let K=2;K<=Math.min(4,areas.length-1);K++){
+  for(const kind of['r','c'])for(const S of combos(areas,K)){const s=new Set();S.forEach(a=>a.cells.forEach(k=>s.add(kind==='r'?R(k):C(k))));
+   if(s.size===K){const ids=new Set(S.map(a=>a.id)),Ls=[...s].sort((x,y)=>x-y);
+    const r=res(4,cand.filter(k=>s.has(kind==='r'?R(k):C(k))&&!ids.has(reg[k])),S.flatMap(a=>a.cells),
+     `${S.map(a=>'「'+RNAME[a.id]+'」').join('')}の${K}つのエリアは、わんこを${kind==='r'?'上から':'左から'}${lname(kind,Ls)}の${K}${kind==='r'?'行':'列'}にしか置けません。だから、その${kind==='r'?'行':'列'}のほかのエリアのマスには置けません。`);if(r)return r}}
+  for(const kind of['r','c'])for(const S of combos(lines.filter(l=>l.kind===kind),K)){const s=new Set();S.forEach(l=>l.cells.forEach(k=>s.add(reg[k])));
+   if(s.size===K){const inS=k=>S.some(l=>l.cells.includes(k)),gs=[...s];
+    const r=res(4,cand.filter(k=>s.has(reg[k])&&!inS(k)),S.flatMap(l=>l.cells),
+     `${kind==='r'?'上から':'左から'}${lname(kind,S.map(l=>l.id))}の${K}${kind==='r'?'行':'列'}のわんこは、${gs.map(g=>'「'+RNAME[g]+'」').join('')}の${K}つのエリアの中にしか置けません。だから、そのエリアのほかのマスには置けません。`);if(r)return r}}}
+ // Rule 5: placing here leads (by forced moves) to a contradiction
+ if(use(5))for(const c of cand){const placed=[c];let live=new Set(cand.filter(k=>!blocks(c,k)&&k!==c));let bad=null;
+  for(let step=0;step<n&&!bad;step++){let forced=null;
+   for(const u of units){if(placed.some(p=>u.cells.includes(p)||(u.kind==='a'?reg[p]===u.id:u.kind==='r'?R(p)===u.id:C(p)===u.id)))continue;
+    const lc=u.cells.filter(k=>live.has(k));if(!lc.length){bad=u;break}if(lc.length===1&&forced===null)forced=lc[0]}
+   if(bad||forced===null)break;placed.push(forced);live=new Set([...live].filter(k=>!blocks(forced,k)&&k!==forced))}
+  if(bad){const r=res(5,[c],bad.cells,`ためしにここへ置くと、置き場所が1つしかないエリアや行が決まっていき、最後に${bad.name}（光っているマス）に置ける場所がなくなります。だから、ここには置けません。`);if(r)return r}}
+ // nothing to eliminate: point out a forced placement if any
+ if(only)return{type:'none',targets:[],causes:[]};const single=units.find(u=>u.cells.length===1);
+ if(single)return{type:'single',targets:[],causes:single.cells,msg:`消せるマスは見つかりませんでしたが、${single.name}はわんこを置ける場所が1つだけです。ここに置いてみよう！`};
+ return{type:'none',targets:[],causes:[],msg:'ごめんね、いまの盤面から「置けないマス」は見つけられませんでした。こたえヒントを使ってみてね。'};
+}
 // ---------- State ----------
 const $=id=>document.getElementById(id);
 const st={n:5,stage:1,pz:null,cells:[],undo:[],t0:0,elapsed:0,timer:null,done:false,hintCell:-1};
@@ -177,7 +259,7 @@ function renderSel(){const sz=$('sizes');sz.innerHTML='';for(const n of SIZES){c
   b.innerHTML=`${i}${bv?'<span class="p">🐾</span><span class="t">'+fmt(bv)+'</span>':''}`;b.onclick=()=>startGame(selSize,i);sg.appendChild(b)}
  const m=muted?'🔇 音 OFF':'🔊 音 ON';$('muteBtn2').textContent=m;$('muteBtn').textContent=muted?'🔇':'🔊'}
 function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.toggle('on',s.id===id))}
-function startGame(n,stage){st.n=n;st.stage=stage;st.pz=puzzle(n,stage);st.cells=new Array(n*n).fill(0);st.undo=[];st.done=false;st.elapsed=0;st.t0=performance.now();st.hintCell=-1;
+function startGame(n,stage){st.n=n;st.stage=stage;st.pz=puzzle(n,stage);st.cells=new Array(n*n).fill(0);st.undo=[];st.done=false;st.elapsed=0;st.t0=performance.now();st.hintCell=-1;st.ded=null;$("ded").classList.remove("on");
  $('title2').textContent=`${n}×${n} ${LABEL[n]}  No.${stage}`;const bv=best[n+'-'+stage];$('bt').textContent=bv?fmt(bv):'--';$('msg').textContent='各エリアに1匹ずつ、わんこを置こう！';
  buildBoard();show('game');clearInterval(st.timer);st.timer=setInterval(tick,250);tick()}
 function tick(){if(st.done)return;st.elapsed=(performance.now()-st.t0)/1000;$('tm').textContent=fmt(st.elapsed)}
@@ -188,9 +270,10 @@ function buildBoard(){const n=st.n,reg=st.pz.reg,B=$('board');B.innerHTML='';B.s
 function conflicts(){const n=st.n,reg=st.pz.reg,bad=new Set(),dogs=[];for(let k=0;k<n*n;k++)if(st.cells[k]===2)dogs.push(k);
  for(let i=0;i<dogs.length;i++)for(let j=i+1;j<dogs.length;j++){const a=dogs[i],b=dogs[j],ay=a/n|0,ax=a%n,by=b/n|0,bx=b%n;
   if(ay===by||ax===bx||reg[a]===reg[b]||(Math.abs(ay-by)<=1&&Math.abs(ax-bx)<=1)){bad.add(a);bad.add(b)}}return{bad,dogs}}
-function render(){const {bad,dogs}=conflicts();const B=$('board').children;
+function render(){if(st.ded&&st.ded.snap!==st.cells.join())closeDed(true);const {bad,dogs}=conflicts();const B=$('board').children;
  for(let k=0;k<B.length;k++){const d=B[k],v=st.cells[k];const want=v===2?'d':v===1?'x':'';if(d.dataset.v!==want){d.dataset.v=want;d.innerHTML=v===2?dogSVG(k*7%5):v===1?'<svg class="x" viewBox="0 0 100 100"><path d="M28 28L72 72M72 28L28 72"/></svg>':''}
-  d.classList.toggle('err',showErr&&bad.has(k));d.classList.toggle('hint',k===st.hintCell)}
+  d.classList.toggle('err',showErr&&bad.has(k));d.classList.toggle('hint',k===st.hintCell);
+  const D=st.ded;d.classList.toggle('dt',!!D&&D.targets.includes(k));d.classList.toggle('dc',!!D&&D.type!=='mistake'&&D.causes.includes(k)&&!D.targets.includes(k));d.classList.toggle('dm',!!D&&D.type==='mistake'&&D.causes.includes(k))}
  $('dc').textContent=dogs.length+'/'+st.n;$('errBtn').classList.toggle('off',!showErr);$('undoBtn').classList.toggle('off',!st.undo.length);return{bad,dogs}}
 function setCells(changes){// changes: [[k,newVal]]
  const rec=[];for(const[k,v]of changes){if(st.cells[k]!==v){rec.push([k,st.cells[k],v]);st.cells[k]=v}}if(rec.length)st.undo.push(rec);return rec.length}
@@ -217,10 +300,19 @@ function endPtr(e){if(!ptr||e.pointerId!==ptr.id)return;clearTimeout(ptr.lp);con
  if(e.type==='pointercancel')return;const k=p.start,v=(st.cells[k]+1)%3;st.hintCell=-1;setCells([[k,v]]);afterChange(v===2?'dog':v===1?'x':'off')}
 window.addEventListener('pointerup',endPtr);window.addEventListener('pointercancel',endPtr);
 // ---------- Buttons ----------
+const RULE={1:'かんたん',2:'ふつう',3:'ふつう',4:'むずかしい',5:'むずかしい'};
+function closeDed(noRender){st.ded=null;$('ded').classList.remove('on');if(!noRender)render()}
+function showDed(){if(st.done)return;st.hintCell=-1;const D=deduce(st.n,st.pz.reg,st.cells,st.pz.sol);D.snap=st.cells.join();st.ded=D;
+ $('dedRule').textContent=D.type==='elim'?'レベル：'+RULE[D.rule]:D.type==='mistake'?'まちがい':D.type==='single'?'ここが決まる':'';
+ $('dedTxt').textContent=D.msg;$('dedApply').style.display=D.targets.length?'':'none';$('dedApply').textContent=`✕をつける（${D.targets.length}マス）`;
+ $('ded').classList.add('on');SND.hint();render()}
+$('dedBtn').onclick=()=>{if(st.ded)closeDed();else showDed()};
+$('dedClose').onclick=()=>closeDed();
+$('dedApply').onclick=()=>{const D=st.ded;if(!D)return;closeDed(true);setCells(D.targets.map(k=>[k,1]));$('msg').textContent=`✕を${D.targets.length}マスにつけました（もどすで戻せます）`;afterChange('x')};
 $('undoBtn').onclick=()=>{if(st.done)return;const r=st.undo.pop();if(!r)return;for(let i=r.length-1;i>=0;i--)st.cells[r[i][0]]=r[i][1];st.hintCell=-1;render();SND.off()};
 $('resetBtn').onclick=()=>{if(st.done)return;const ch=[];st.cells.forEach((v,k)=>{if(v)ch.push([k,0])});if(setCells(ch)){render();SND.off();$('msg').textContent='リセットしました（もどすで戻せます）'}};
 $('errBtn').onclick=()=>{showErr=!showErr;LS.set('err',showErr);render();$('msg').textContent=showErr?'ミス表示 ON：ぶつかっているわんこを赤く表示':'ミス表示 OFF'};
-$('hintBtn').onclick=()=>{if(st.done)return;const n=st.n,sol=st.pz.sol,isSol=k=>sol[k/n|0]===k%n;
+$('hintBtn').onclick=()=>{if(st.done)return;closeDed(true);const n=st.n,sol=st.pz.sol,isSol=k=>sol[k/n|0]===k%n;
  // 1) wrong dog -> remove it 2) X on a solution cell -> fix 3) reveal a missing dog
  let k=st.cells.findIndex((v,i)=>v===2&&!isSol(i));let msg;
  if(k>=0){setCells([[k,0]]);msg='このわんこは置けない場所でした。外しました'}
@@ -236,7 +328,7 @@ $('backBtn').onclick=()=>{clearInterval(st.timer);renderSel();show('sel')};
 $('cSel').onclick=()=>{$('clear').classList.remove('on');renderSel();show('sel')};
 $('cNext').onclick=()=>{$('clear').classList.remove('on');startGame(st.n,st.stage+1)};
 renderSel();
-window.__wan={solve,generate,puzzle,st,SIZES,STAGES};
+window.__wan={deduce,showDed,solve,generate,puzzle,st,SIZES,STAGES};
 })();
 </script>
 </body>
